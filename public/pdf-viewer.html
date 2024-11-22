@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF Viewer</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/react-pdf@7.7.0/dist/umd/react-pdf.min.js"></script>
+  <link href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .react-pdf__Page {
+      margin-top: 10px;
+    }
+    .react-pdf__Page__textContent {
+      border: 1px solid darkgrey;
+      box-shadow: 5px 5px 5px 1px #ccc;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="pdf-viewer-root"></div>
+  <script>
+    window.addEventListener('message', function(event) {
+      if (event.data.type === 'pdf-data') {
+        const { pdfUrl, pageNumber, scale } = event.data;
+        initPDFViewer(pdfUrl, pageNumber, scale);
+      }
+    });
+
+    function initPDFViewer(pdfUrl, initialPage, initialScale) {
+      const channel = new BroadcastChannel('pdf-viewer');
+      
+      const PDFViewer = () => {
+        const [pageNumber, setPageNumber] = React.useState(initialPage);
+        const [scale, setScale] = React.useState(initialScale);
+
+        React.useEffect(() => {
+          const handleMessage = (event) => {
+            if (event.data.type === 'pageChange') {
+              setPageNumber(event.data.page);
+            }
+          };
+          channel.addEventListener('message', handleMessage);
+          return () => channel.removeEventListener('message', handleMessage);
+        }, []);
+
+        const handlePageChange = (newPage) => {
+          setPageNumber(newPage);
+          channel.postMessage({ type: 'pageChange', page: newPage });
+        };
+
+        return React.createElement('div', { className: 'min-h-screen bg-gray-100 p-4' },
+          React.createElement(ReactPDF.Document, {
+            file: pdfUrl,
+            className: 'flex flex-col items-center'
+          },
+            React.createElement(ReactPDF.Page, {
+              pageNumber: pageNumber,
+              scale: scale,
+              className: 'bg-white shadow-lg'
+            })
+          )
+        );
+      };
+
+      ReactDOM.createRoot(document.getElementById('pdf-viewer-root')).render(
+        React.createElement(PDFViewer)
+      );
+    }
+  </script>
+</body>
+</html>
